@@ -1,13 +1,6 @@
-@startuml AKSArc
-title AKS Arc Template
-json AKSArc {
-%load_json(".\aide-usschema.json")
+@startuml AKSEdgeDeployConfig
+title AKSEdge Deploy UserConfig
+json AKSEdgeDeploy {
+%load_json(".\aide-ucschema.json")
 }
-
-map legend {
-    deprecated => <s>deprecated
-    not applicable => <color:red>not applicable
-    new feature => <color:blue>new feature
-}
-
 @enduml
