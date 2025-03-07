@@ -12,7 +12,7 @@ New-Variable -Option Constant -ErrorAction SilentlyContinue -Name arciotEnvConfi
     "ArcIotSchema"  = @("SubscriptionName", "SubscriptionId", "TenantId", "ResourceGroupName", "Location", "Auth")
 }
 <# Azure Regions where Arc enabled Kubernetes is supported.
-    $data = (az provider show --namespace "Microsoft.Kubernetes" --output json) | ConvertFrom-Json
+    $data = (az provider show --namespace "Microsoft.Kubernetes" -o json) | ConvertFrom-Json
     $resourceInfo = $data.resourceTypes | Where-Object { $_.resourceType -eq "connectedclusters" } # lists the displaynames
     $arcLocations = $resourceInfo.locations.toLower().replace(" ","") # gives the table below.
     #Mapping of names to displaynames : az account list-locations -o table
@@ -435,7 +435,7 @@ function Remove-AideArcServerExtension {
         "--machine-name", "$($arciotMachineName)",
         "--resource-group", "$($aicfg.ResourceGroupName)"
     )
-    $extlist = (az connectedmachine extension list @cmeargs --query [].name) | ConvertFrom-Json -ErrorAction SilentlyContinue
+    $extlist = (az connectedmachine extension list @cmeargs --query [].name -o json) | ConvertFrom-Json -ErrorAction SilentlyContinue
     if ($extlist) {
         $extensions = [String]::Join(",", $extlist)
         Write-Host "Found : $($extensions)"

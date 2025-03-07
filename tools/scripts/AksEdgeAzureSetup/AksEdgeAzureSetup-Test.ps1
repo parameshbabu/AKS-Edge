@@ -28,7 +28,7 @@ function Install-AzCli {
     }
     Write-Host "> Azure CLI installed" -ForegroundColor Green
     <# Dont need extensions here.
-    $extlist = (az extension list --query [].name | ConvertFrom-Json -ErrorAction SilentlyContinue)
+    $extlist = (az extension list --query [].name -o json | ConvertFrom-Json -ErrorAction SilentlyContinue)
     $reqExts = @("connectedmachine", "connectedk8s", "customlocation")
     foreach ($ext in $reqExts) {
         if ($extlist -and $extlist.Contains($ext)) {
@@ -64,17 +64,17 @@ if ($jsonContent.Azure) {
 Install-AzCli
 Write-Host "$aicfg"
 Write-Host ">> Testing the serviceprincpal access"
-$session = (az login --service-principal -u $($aicfg.Auth.ServicePrincipalId) -p $($aicfg.Auth.Password) --tenant $aicfg.TenantId) | ConvertFrom-Json
+$session = (az login --service-principal -u $($aicfg.Auth.ServicePrincipalId) -p $($aicfg.Auth.Password) --tenant $aicfg.TenantId -o json) | ConvertFrom-Json
 if (-not $session){
     Write-Host "Error: Auth credentials are invalid" -ForegroundColor Red
     exit -1
 }
-(az account set --subscription $($aicfg.SubscriptionId)) | Out-Null
-$session = (az account show | ConvertFrom-Json -ErrorAction SilentlyContinue)
+(az account set --subscription $($aicfg.SubscriptionId) -o json) | Out-Null
+$session = (az account show -o json | ConvertFrom-Json -ErrorAction SilentlyContinue)
 Write-Host "Logged in $($session.name) subscription as $($session.user.name) ($($session.user.type))"
 $rgname = $aicfg.ResourceGroupName
 $rguri = "/subscriptions/$($aicfg.SubscriptionId)/resourceGroups/$rgname"
-$roles = (az role assignment list --all --assignee $($session.user.name)) | ConvertFrom-Json
+$roles = (az role assignment list --all --assignee $($session.user.name) -o json) | ConvertFrom-Json
 $onbRoles = @("Azure Connected Machine Onboarding","Kubernetes Cluster - Azure Arc Onboarding")
 $rolecnt = 0
 if ($roles) {
@@ -111,7 +111,7 @@ $namespaces = @("Microsoft.HybridCompute", "Microsoft.GuestConfiguration", "Micr
     "Microsoft.Kubernetes", "Microsoft.KubernetesConfiguration", "Microsoft.ExtendedLocation")
 foreach ($namespace in $namespaces) {
     Write-Host "Checking $namespace..."
-    $provider = (az provider show -n $namespace | ConvertFrom-Json -ErrorAction SilentlyContinue)
+    $provider = (az provider show -n $namespace -o json | ConvertFrom-Json -ErrorAction SilentlyContinue)
     if ($provider.registrationState -ieq "Registered") {
         Write-Host "* $namespace provider registered" -ForegroundColor Green
     } else {

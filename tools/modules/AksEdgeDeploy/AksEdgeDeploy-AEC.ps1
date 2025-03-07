@@ -87,11 +87,11 @@ function Enter-AideArcSession {
         }
     }
     <#
-    (az account set --subscription $aicfg.SubscriptionId) | Out-Null
+    (az account set --subscription $aicfg.SubscriptionId -o json) | Out-Null
     #az configure --defaults group=$aicfg.ResourceGroupName
-    $session = (az account show | ConvertFrom-Json -ErrorAction SilentlyContinue)
+    $session = (az account show -o json | ConvertFrom-Json -ErrorAction SilentlyContinue)
     Write-Host "Logged in $($session.name) subscription as $($session.user.name) ($($session.user.type))"
-    $roles = (az role assignment list --all --assignee $($session.user.name)) | ConvertFrom-Json
+    $roles = (az role assignment list --all --assignee $($session.user.name) -o json) | ConvertFrom-Json
     if (-not $roles) {
         Write-Host "Error: No roles enabled for this account in this subscription" -ForegroundColor Red
         Exit-AideArcSession
