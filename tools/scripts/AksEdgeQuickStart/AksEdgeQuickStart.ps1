@@ -11,7 +11,7 @@ param(
 #Requires -RunAsAdministrator
 New-Variable -Name gAksEdgeQuickStartVersion -Value "1.0.250221.1400" -Option Constant -ErrorAction SilentlyContinue
 
-New-Variable -option Constant -ErrorAction SilentlyContinue -Name arcLocations -Value @(
+New-Variable -Option Constant -ErrorAction SilentlyContinue -Name arcLocations -Value @(
     "australiaeast","brazilsouth","canadacentral","canadaeast","centralindia","centralus","centraluseuap",
     "eastasia","eastus","eastus2","eastus2euap","francecentral","germanywestcentral","israelcentral",
     "italynorth","japaneast","koreacentral","northcentralus","northeurope","norwayeast","southafricanorth",

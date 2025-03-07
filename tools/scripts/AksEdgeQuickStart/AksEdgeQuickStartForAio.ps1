@@ -176,6 +176,9 @@ param(
         $k8sConnectArgs += @("--gateway-resource-id", $arcArgs.GatewayResourceId)
     }
 
+    # Use kubectl.exe from AKSEE deployment
+    $env:KUBECTL_CLIENT_PATH = "$env:ProgramFiles\AksEdge\kubectl\kubectl.exe"
+
     Write-Host "Connect cmd args - $k8sConnectArgs"
     $errOut = $($retVal = & {az connectedk8s connect $k8sConnectArgs}) 2>&1
     if ($LASTEXITCODE -ne 0)
@@ -204,7 +207,16 @@ param(
 
         Write-Host "serviceAccountIssuer = $serviceAccountIssuer"
         Restart-ApiServer -serviceAccountIssuer $serviceAccountIssuer -useK8s:$useK8s
+
+        Write-Host "Restart ARC agents."
+        & kubectl -n azure-arc rollout restart deployment
     }
+}
+
+function Get-AkseeInstalledProductName
+{
+
+    return (Get-ChildItem -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\' | Get-ItemProperty |  Where-Object {$_.DisplayName -like "*Aks Edge Essentials*"}).DisplayName
 }
 
 $UseK8s = $false
@@ -212,6 +224,15 @@ if (! [Environment]::Is64BitProcess) {
     Write-Host "Error: Run this in 64bit Powershell session" -ForegroundColor Red
     exit -1
 }
+
+$installedAkseeProductName = Get-AkseeInstalledProductName
+if (-Not [string]::IsNullOrEmpty($installedAkseeProductName)) {
+    if ($installedAkseeProductName -like "*K8s*") {
+        Write-Host "Detected AKSEE k8s installation. Please uninstall and run the script again!" -ForegroundColor Red
+        exit -1
+    }
+}
+
 #Validate inputs
 if ($arcLocations -inotcontains $Location) {
     Write-Host "Error: Location $Location is not supported for Azure Arc" -ForegroundColor Red
