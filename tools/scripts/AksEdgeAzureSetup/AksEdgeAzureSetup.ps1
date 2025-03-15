@@ -149,7 +149,7 @@ if ($($aicfg.SubscriptionId)) {
         az logout
         exit -1
     }
-    (az account set --subscription $($aicfg.SubscriptionId) -o json) | Out-Null
+    (az account set --subscription $($aicfg.SubscriptionId)) | Out-Null
 } elseif ($($aicfg.SubscriptionName)) {
     #If SubscriptionName is specified, look for that in the session
     $reqSession = $session | Where-Object { ($_.name -eq $aicfg.SubscriptionName) -and ($_.state -eq 'Enabled') }
@@ -161,7 +161,7 @@ if ($($aicfg.SubscriptionId)) {
         az logout
         exit -1
     }
-    (az account set --subscription $($reqSession.id) -o json) | Out-Null
+    (az account set --subscription $($reqSession.id)) | Out-Null
 } else {
     #nothing specified. So use the default subscription and continue
     if ($session.Count -gt 1) {
