@@ -65,7 +65,7 @@ spec:
         "kubernetes.io/os": linux
       containers:
       - name: local-path-provisioner
-        image: rancher/local-path-provisioner:master-head
+        image: mcr.microsoft.com/oss/v2/rancher/local-path-provisioner:v0.0.30-1
         imagePullPolicy: IfNotPresent
         command:
         - local-path-provisioner
