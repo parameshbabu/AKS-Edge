@@ -87,11 +87,11 @@ function Enter-AideArcSession {
         }
     }
     <#
-    (az account set --subscription $aicfg.SubscriptionId) | Out-Null
+    (az account set --subscription $aicfg.SubscriptionId -o json) | Out-Null
     #az configure --defaults group=$aicfg.ResourceGroupName
-    $session = (az account show | ConvertFrom-Json -ErrorAction SilentlyContinue)
+    $session = (az account show -o json | ConvertFrom-Json -ErrorAction SilentlyContinue)
     Write-Host "Logged in $($session.name) subscription as $($session.user.name) ($($session.user.type))"
-    $roles = (az role assignment list --all --assignee $($session.user.name)) | ConvertFrom-Json
+    $roles = (az role assignment list --all --assignee $($session.user.name) -o json) | ConvertFrom-Json
     if (-not $roles) {
         Write-Host "Error: No roles enabled for this account in this subscription" -ForegroundColor Red
         Exit-AideArcSession
@@ -139,8 +139,7 @@ function Get-AideArcClusterName {
         Returns the cluster name for the deployed cluster.
 
     .DESCRIPTION
-        This command returns the cluster name for the deployed cluster. If the user has specified Clustername in the aide-userconfig.json, the same is returned.
-        If there is no user specifcation, it returns the clustername as hostname-k8s or hostname-k3s based on the kubernetes flavour installed.
+        This command returns the cluster name for the deployed cluster. 
 
     .OUTPUTS
         String
@@ -149,20 +148,12 @@ function Get-AideArcClusterName {
         Get-AideArcClusterName
 
     #>
-    $aicfg = Get-AideArcUserConfig
-    if ($aicfg.ClusterName) {
-        $arciotSession.ClusterName = $aicfg.ClusterName
-    } else {
-        #$clustername = $(kubectl get configmap -n aksedge aksedge -o jsonpath="{.data.clustername}")
-        #if (!$clustername){
-        $clustername = hostname
-        $k3s = (kubectl get nodes) | Where-Object { $_ -match "k3s"}
-        if ($k3s) {
-            $clustername += "-k3s"
-        } else {
-            $clustername += "-k8s"
+    $clustername =""
+    if (Test-AksEdgeArcConnection) {
+        $clusterInfo = Get-AksEdgeDeploymentInfo
+        if ($clusterInfo) {
+            $clustername = $clusterInfo.Arc.ClusterName
         }
-        #}
     }
     return $clustername
 }
@@ -193,6 +184,13 @@ function Connect-AideArc {
         Connect-AideArc
 
     #>
+    Write-Host "Connecting Azure Arc-enabled Server.."
+    $serverStatus = Connect-AideArcServer
+    if ($serverStatus) {
+        Write-Host "-- Connection succeeded." -ForegroundColor Green
+    } else {
+        Write-Host "-- Connection failed." -ForegroundColor Red
+    }
 
     Write-Host "Checking Azure Arc-enabled Kubernetes.."
     $kubernetesStatus = Test-AksEdgeArcConnection
@@ -208,13 +206,6 @@ function Connect-AideArc {
         }
     }
 
-    Write-Host "Connecting Azure Arc-enabled Server.."
-    $serverStatus = Connect-AideArcServer
-    if ($serverStatus) {
-        Write-Host "-- Connection succeeded." -ForegroundColor Green
-    } else {
-        Write-Host "-- Connection failed." -ForegroundColor Red
-    }
 
     return ($serverStatus -and $kubernetesStatus)
 }
@@ -257,9 +248,9 @@ function Disconnect-AideArc {
 
 New-Variable -Option Constant -ErrorAction SilentlyContinue -Name arcEdgeInstallConfig -Value @{
     "PSModules" = @(
-        @{Name="Az.Resources"; Version="6.4.1"; Flags="-AllowClobber"},
-        @{Name="Az.Accounts"; Version="2.11.2"; Flags="-AllowClobber"}, 
-        @{Name="Az.ConnectedKubernetes"; Version="0.9.0"; Flags="-AllowClobber"}
+        @{Name="Az.Resources"; Version="7.8.1"; Flags="-AllowClobber"},
+        @{Name="Az.Accounts"; Version="4.0.2"; Flags="-AllowClobber"}, 
+        @{Name="Az.ConnectedKubernetes"; Version="0.13.0"; Flags="-AllowClobber"}
         )
 }
 function Test-ArcEdgeAzModules {
