@@ -22,17 +22,17 @@ New-Variable -Option Constant -ErrorAction SilentlyContinue -Name arciotEnvConfi
     "ArcIotSchema"  = @("SubscriptionName", "SubscriptionId", "TenantId", "ResourceGroupName", "Location", "Auth")
 }
 New-Variable -Option Constant -ErrorAction SilentlyContinue -Name azMinVersions -Value @{
-    "azure-cli"        = "2.41.0"
-    "azure-cli-core"   = "2.41.0"
-    "connectedk8s"     = "1.3.1"
-    "connectedmachine" = "0.5.1"
+    "azure-cli"        = "2.69.0"
+    "azure-cli-core"   = "2.69.0"
+    "connectedk8s"     = "1.10.6"
+    "connectedmachine" = "1.0.0"
     "customlocation"   = "0.1.3"
-    "k8s-extension"    = "1.3.3"
+    "k8s-extension"    = "1.6.3"
 }
 function Test-AzVersions {
     #Function to check if the installed az versions are greater or equal to minVersions
     $retval = $true
-    $curVersion = (az version) | ConvertFrom-Json
+    $curVersion = (az version -o json) | ConvertFrom-Json
     if (-not $curVersion) { return $false }
     foreach ($item in $azMinVersions.Keys ) {
         Write-Host " Checking $item minVersion $($azMinVersions.$item).." -NoNewline
@@ -64,7 +64,7 @@ function Install-AideAzCli {
         Installs Azure CLI and required extensions
 
     .DESCRIPTION
-        Checks if Azure CLI is installed (az) and installs the latest version of Azure CLI from "https://aka.ms/installazurecliwindows". 
+        Checks if Azure CLI is installed (az) and installs the latest version of Azure CLI from "https://aka.ms/installazurecliwindowsx64". 
         This also checks and installs the following extensions
         "connectedmachine", "connectedk8s", "customlocation", "k8s-extension"
 
@@ -82,7 +82,7 @@ function Install-AideAzCli {
         Write-Host "> Installing AzCLI..."
         Push-Location $env:TEMP
         $progressPreference = 'silentlyContinue'
-        Invoke-WebRequest -Uri https://aka.ms/installazurecliwindows -OutFile .\AzureCLI.msi -UseBasicParsing
+        Invoke-WebRequest -Uri https://aka.ms/installazurecliwindowsx64 -OutFile .\AzureCLI.msi -UseBasicParsing
         $progressPreference = 'Continue'
         Start-Process msiexec.exe -Wait -ArgumentList '/I AzureCLI.msi /passive'
         Remove-Item .\AzureCLI.msi
@@ -94,7 +94,7 @@ function Install-AideAzCli {
         #az config set auto-upgrade.enable=yes
     }
     Write-Host "> Azure CLI installed" -ForegroundColor Green
-    $extlist = (az extension list --query [].name | ConvertFrom-Json -ErrorAction SilentlyContinue)
+    $extlist = (az extension list --query [].name -o json | ConvertFrom-Json -ErrorAction SilentlyContinue)
     foreach ($ext in $arciotEnvConfig.AzExtensions) {
         if ($extlist -and $extlist.Contains($ext)) {
             Write-Host "> az extension $ext installed" -ForegroundColor Green
@@ -149,11 +149,11 @@ function Enter-AideArcSession {
             return $false
         }
     }
-    (az account set --subscription $aicfg.SubscriptionId) | Out-Null
+    (az account set --subscription $aicfg.SubscriptionId -o json) | Out-Null
     #az configure --defaults group=$aicfg.ResourceGroupName
-    $session = (az account show | ConvertFrom-Json -ErrorAction SilentlyContinue)
+    $session = (az account show -o json | ConvertFrom-Json -ErrorAction SilentlyContinue)
     Write-Host "Logged in $($session.name) subscription as $($session.user.name) ($($session.user.type))"
-    $roles = (az role assignment list --all --assignee $($session.user.name)) | ConvertFrom-Json
+    $roles = (az role assignment list --all --assignee $($session.user.name) -o json) | ConvertFrom-Json
     if (-not $roles) {
         Write-Host "Error: No roles enabled for this account in this subscription" -ForegroundColor Red
         Exit-AideArcSession
@@ -259,7 +259,7 @@ function Test-AzureResourceProviders {
         $retval = $true
         foreach ($namespace in $namespaces) {
             Write-Host "Checking $namespace..."
-            $provider = (az provider show -n $namespace | ConvertFrom-Json -ErrorAction SilentlyContinue)
+            $provider = (az provider show -n $namespace -o json | ConvertFrom-Json -ErrorAction SilentlyContinue)
             if ($provider.registrationState -ieq "Registered") {
                 Write-Host "* $namespace provider registered" -ForegroundColor Green
             } else {
@@ -289,13 +289,13 @@ function Test-AzureRoles {
     Write-Host "Checking for role assignment"
     $query = "[?principalName=='$appId'].roleDefinitionName"
     $scope = "/subscriptions/$($aicfg.SubscriptionId)/resourceGroups/$($aicfg.ResourceGroupName)"
-    $curRoles = (az role assignment list --scope $scope --query $query) | ConvertFrom-Json -ErrorAction SilentlyContinue
+    $curRoles = (az role assignment list --scope $scope --query $query -o json) | ConvertFrom-Json -ErrorAction SilentlyContinue
     foreach ($reqRole in $roles) {
         if ($curRoles.Contains($reqRole)) {
             Write-Host "$reqRole role enabled"
         } else {
             if ($Add) {
-                $res = (az role assignment create --assignee $appId --scope $scope --role $reqRole) | ConvertFrom-Json -ErrorAction SilentlyContinue
+                $res = (az role assignment create --assignee $appId --scope $scope --role $reqRole -o json) | ConvertFrom-Json -ErrorAction SilentlyContinue
                 Write-Host "Role added. $($res.principalId)"
             } else {
                 Write-Host "$reqRole role is not enabled" -ForegroundColor Red
@@ -369,7 +369,7 @@ function Test-AideArcKubernetes {
 
     $aicfg = Get-AideArcUserConfig
     # check if this cluster is already registered
-    $k8slist = (az connectedk8s list -g $aicfg.ResourceGroupName --query [].name | ConvertFrom-Json -ErrorAction SilentlyContinue)
+    $k8slist = (az connectedk8s list -g $aicfg.ResourceGroupName --query [].name -o json | ConvertFrom-Json -ErrorAction SilentlyContinue)
     $arciotClusterName = Get-AideArcClusterName
     if ($k8slist -and ($k8slist.Contains($arciotClusterName))) {
         Write-Host "$arciotClusterName is connected to Arc" -ForegroundColor Green
@@ -400,7 +400,7 @@ function Connect-AideArcKubernetes {
     if ((!$arciotSession.azSession) -and (!(Enter-AideArcSession))) { return $false }
     $aicfg = Get-AideArcUserConfig
     # check if this cluster is already registered
-    $k8slist = (az connectedk8s list -g $aicfg.ResourceGroupName --query [].name | ConvertFrom-Json -ErrorAction SilentlyContinue)
+    $k8slist = (az connectedk8s list -g $aicfg.ResourceGroupName --query [].name -o json | ConvertFrom-Json -ErrorAction SilentlyContinue)
     $arciotClusterName = Get-AideArcClusterName
     if ($k8slist -and ($k8slist.Contains($arciotClusterName))) {
         Write-Host "$arciotClusterName is already connected to Arc" -ForegroundColor Green
@@ -460,7 +460,7 @@ function Connect-AideArcKubernetes {
             }
         }
         $connectargs += @( "--tags", $tags)
-        $result = (az connectedk8s connect @connectargs ) | ConvertFrom-Json -ErrorAction SilentlyContinue
+        $result = (az connectedk8s connect @connectargs -o json) | ConvertFrom-Json -ErrorAction SilentlyContinue
         if (!$result) {
             Write-Host "Error: arc connect failed." -ForegroundColor Red
             return $false
@@ -470,7 +470,7 @@ function Connect-AideArcKubernetes {
         if (Test-AideArcServer) {
             $cmInfo = Get-AideArcServerInfo
             $resource = "/subscriptions/$($cmInfo.SubscriptionId)/resourceGroups/$($cmInfo.ResourceGroupName)/providers/Microsoft.HybridCompute/machines/$($cmInfo.Name)"
-            $result= $(az tag update --resource-id $resource --operation Merge --tags "AKSEE=$arciotClusterName")
+            $result= $(az tag update --resource-id $resource --operation Merge --tags "AKSEE=$arciotClusterName" -o json)
             if ($result) {
                 Write-Host "Arc-enabled server tag updated with cluster id"
             } else {
@@ -509,14 +509,14 @@ function Disconnect-AideArcKubernetes {
     #>
     if ((!$arciotSession.azSession) -and (!(Enter-AideArcSession))) { return $false }
     $aicfg = Get-AideArcUserConfig
-    $k8slist = (az connectedk8s list -g $aicfg.ResourceGroupName --query [].name | ConvertFrom-Json -ErrorAction SilentlyContinue)
+    $k8slist = (az connectedk8s list -g $aicfg.ResourceGroupName --query [].name -o json | ConvertFrom-Json -ErrorAction SilentlyContinue)
     $arciotClusterName = Get-AideArcClusterName
     if ($k8slist -and ($k8slist.Contains($arciotClusterName))) {
         # Get the credentials before connecting to ensure that we have the latest file.
         Write-Host "Updating kubeconfig file with Get-AksEdgeKubeConfig..."
         Get-AksEdgeKubeConfig -KubeConfigPath $($arciotSession.WorkspacePath) -Confirm:$false
         Write-Host "Deleting Arc resource for $arciotClusterName"
-        $result = (az connectedk8s delete -g $aicfg.ResourceGroupName -n $arciotClusterName --kube-config "$($arciotSession.WorkspacePath)\config" --yes) | ConvertFrom-Json -ErrorAction SilentlyContinue
+        $result = (az connectedk8s delete -g $aicfg.ResourceGroupName -n $arciotClusterName --kube-config "$($arciotSession.WorkspacePath)\config" --yes -o json) | ConvertFrom-Json -ErrorAction SilentlyContinue
         Write-Verbose ($result | Out-String)
         Remove-Item -Path "$($arciotSession.WorkspacePath)\config" | Out-Null
         Write-Host "Arc connect for cluster $clusername removed."

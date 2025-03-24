@@ -8,10 +8,10 @@ Param(
 )
 
 #Requires -RunAsAdministrator
-New-Variable -Name gAksEdgeAzureSetup -Value "1.0.030325.1100" -Option Constant -ErrorAction SilentlyContinue
+New-Variable -Name gAksEdgeAzureSetup -Value "1.0.250221.1400" -Option Constant -ErrorAction SilentlyContinue
 New-Variable -Option Constant -ErrorAction SilentlyContinue -Name cliMinVersions -Value @{
-    "azure-cli"      = "2.41.0"
-    "azure-cli-core" = "2.41.0"
+    "azure-cli"      = "2.69.0"
+    "azure-cli-core" = "2.69.0"
 }
 New-Variable -Option Constant -ErrorAction SilentlyContinue -Name arcLocations -Value @(
     "australiaeast","brazilsouth","canadacentral","canadaeast","centralindia","centralus","centraluseuap",
@@ -23,7 +23,7 @@ New-Variable -Option Constant -ErrorAction SilentlyContinue -Name arcLocations -
 function Test-AzVersions {
     #Function to check if the installed az versions are greater or equal to minVersions
     $retval = $true
-    $curVersion = (az version) | ConvertFrom-Json
+    $curVersion = (az version -o json) | ConvertFrom-Json
     if (-not $curVersion) { return $false }
     foreach ($item in $cliMinVersions.Keys ) {
         Write-Host " Checking $item minVersion $($cliMinVersions.$item).." -NoNewline
@@ -43,11 +43,11 @@ function Install-AzCli {
     #Check if Az CLI is installed. If not install it.
     $AzCommand = Get-Command -Name az -ErrorAction SilentlyContinue
     if (!$AzCommand) {
-        $CLIPath = "C:\Program Files (x86)\Microsoft SDKs\Azure\CLI2\wbin"
+        $CLIPath = "C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin"
         Write-Host "> Installing AzCLI..."
         Push-Location $env:TEMP
         $progressPreference = 'silentlyContinue'
-        Invoke-WebRequest -Uri https://aka.ms/installazurecliwindows -OutFile .\AzureCLI.msi -UseBasicParsing
+        Invoke-WebRequest -Uri https://aka.ms/installazurecliwindowsx64 -OutFile .\AzureCLI.msi -UseBasicParsing
         $progressPreference = 'Continue'
         Start-Process msiexec.exe -Wait -ArgumentList '/I AzureCLI.msi /passive'
         Remove-Item .\AzureCLI.msi
@@ -93,7 +93,7 @@ function AssignRole([String] $roleToAssign) {
         "--scope", "$rguri"
     )
     Write-Host "Creating $roleToAssign role assignment"
-    $res = (az role assignment create @roleparams ) | ConvertFrom-Json
+    $res = (az role assignment create @roleparams -o json) | ConvertFrom-Json
     if (!$res) { Write-Host " Error in assigning $roleToAssign role " -ForegroundColor Red }
 }
 ###
@@ -131,7 +131,7 @@ $loginparams = @("--scope", "https://graph.microsoft.com//.default" )
 if ($($aicfg.TenantId)) {
     $loginparams += @("--tenant", $($aicfg.TenantId))
 }
-$session = (az login @loginparams) | ConvertFrom-Json
+$session = (az login @loginparams -o json) | ConvertFrom-Json
 if (-not $session) {
     Write-Host "Error: Login failed. See error above and if required specify the tenantId in the input json file." -ForegroundColor Red
     exit -1
@@ -173,7 +173,7 @@ if ($($aicfg.SubscriptionId)) {
     Write-Host ">>> Default subscription is $($sub.name)[$($sub.id)]" -ForegroundColor Cyan
 }
 
-$session = (az account show | ConvertFrom-Json -ErrorAction SilentlyContinue)
+$session = (az account show -o json | ConvertFrom-Json -ErrorAction SilentlyContinue)
 $aicfg.SubscriptionId = $session.id
 $aicfg.SubscriptionName = $session.name
 $aicfg.TenantId = $session.tenantId
@@ -182,10 +182,10 @@ Write-Host "Logged in $($session.name) subscription as $($session.user.name) ($(
 Write-Host "TenantID       : $($aicfg.TenantId)" -ForegroundColor Cyan
 Write-Host "SubscriptionId : $($aicfg.SubscriptionId)" -ForegroundColor Cyan
 $hasRights = $false
-$userinfo = (az ad signed-in-user show) | ConvertFrom-Json
+$userinfo = (az ad signed-in-user show -o json) | ConvertFrom-Json
 Write-Host "User Principal Name : $($userinfo.userPrincipalName)"
 Write-Host "Looking for Azure RBAC roles"
-$adminroles = (az role assignment list --all --assignee $userinfo.userPrincipalName --include-inherited) | ConvertFrom-Json
+$adminroles = (az role assignment list --all --assignee $userinfo.userPrincipalName --include-inherited -o json) | ConvertFrom-Json
 if ($adminroles) {
     Write-Host "Roles enabled for this account are:" -ForegroundColor Cyan
     foreach ($role in $adminroles) {
@@ -201,7 +201,7 @@ if (-not $hasRights) {
     # two stage call to work around issue reported here : https://github.com/Azure/azure-powershell/issues/15261 which occurs for CSP subscriptions
     # look for classic administrators only when there is no Azure RBAC roles defined
     Write-Host "Looking for classic administrator roles"
-    $adminroles = (az role assignment list --include-classic-administrators) | ConvertFrom-Json
+    $adminroles = (az role assignment list --include-classic-administrators -o json) | ConvertFrom-Json
     $adminrole = $adminroles | Where-Object { $_.principalName -ieq $($session.user.name) }
     if ($adminrole) {
         Write-Host "Roles enabled for this account are:" -ForegroundColor Cyan
@@ -228,7 +228,7 @@ if ($rgexists -ieq 'true') {
     Write-Host "* $rgname exists" -ForegroundColor Green
 } else {
     Write-Host "Creating $rgname resource group"
-    $rg = (az group create --resource-group $rgname -l $aicfg.Location | ConvertFrom-Json -ErrorAction SilentlyContinue)
+    $rg = (az group create --resource-group $rgname -l $aicfg.Location -o json | ConvertFrom-Json -ErrorAction SilentlyContinue)
     if ($rg) {
         Write-Host "$($rg.name) resource group created" -ForegroundColor Green
     } else { 
@@ -243,19 +243,19 @@ $namespaces = @("Microsoft.HybridCompute", "Microsoft.GuestConfiguration", "Micr
     "Microsoft.Kubernetes", "Microsoft.KubernetesConfiguration", "Microsoft.ExtendedLocation")
 foreach ($namespace in $namespaces) {
     Write-Host "Checking $namespace..."
-    $provider = (az provider show -n $namespace | ConvertFrom-Json -ErrorAction SilentlyContinue)
+    $provider = (az provider show -n $namespace -o json | ConvertFrom-Json -ErrorAction SilentlyContinue)
     if ($provider.registrationState -ieq "Registered") {
         Write-Host "* $namespace provider registered" -ForegroundColor Green
     } else {
         Write-Host "Registering $namespace provider. This can take some time. Please wait..." -ForegroundColor Yellow
-        $provider = (az provider register -n $namespace --wait | ConvertFrom-Json -ErrorAction SilentlyContinue)
+        $provider = (az provider register -n $namespace --wait -o json | ConvertFrom-Json -ErrorAction SilentlyContinue)
         Write-Host "$namespace provider registered successfully." -ForegroundColor Green
     }
 }
 # Create Service Principal
 
 $spName = $aicfg.ServicePrincipalName
-$spApp = (az ad sp list --display-name $spName | ConvertFrom-Json -ErrorAction SilentlyContinue)
+$spApp = (az ad sp list --display-name $spName -o json | ConvertFrom-Json -ErrorAction SilentlyContinue)
 $servicePrincipal = $null
 $enableContributor = $spContributorRole.IsPresent
 $enableKcOnboarding = (!$spContributorRole.IsPresent)
@@ -267,7 +267,7 @@ if ($spApp) {
     # service principal found. Check roles required
     $servicePrincipal = $spApp
     Write-Host "$spName is already present."
-    $spRoles = (az role assignment list --all --assignee $($spApp.appId)) | ConvertFrom-Json
+    $spRoles = (az role assignment list --all --assignee $($spApp.appId) -o json) | ConvertFrom-Json
     if ($spRoles) {
         $spRolesRgScope = $spRoles | Where-Object {$_.scope -eq $rguri } # resource group scope
         if ($spRolesRgScope) {
@@ -297,7 +297,7 @@ if ($spApp) {
 
     if ($spCredReset) {
         Write-Host "Resetting credentials.."
-        $servicePrincipal = (az ad sp credential reset --id $spApp.appId | ConvertFrom-Json)
+        $servicePrincipal = (az ad sp credential reset --id $spApp.appId -o json | ConvertFrom-Json)
         if ($servicePrincipal) {
             Write-Host "ServicePrincipal credentials reset successfully"
             $savePassword = $true
@@ -318,7 +318,7 @@ if ($spApp) {
     } else {
         $spparams += @("--role", "Azure Connected Machine Onboarding")
     }
-    $servicePrincipal = (az ad sp create-for-RBAC @spparams | ConvertFrom-Json)
+    $servicePrincipal = (az ad sp create-for-RBAC @spparams -o json | ConvertFrom-Json)
     if (!$servicePrincipal) {
         Write-Host "Error: ServicePrincipal creation failed" -ForegroundColor Red
         az logout
